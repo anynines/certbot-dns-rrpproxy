@@ -13,7 +13,7 @@ Named Arguments
 ``--dns-rrpproxy-propagation-seconds``    The number of seconds to wait for DNS
                                           to propagate before asking the ACME
                                           server to verify the DNS record.
-                                          (Default: 60)
+                                          (Default: 120)
 ``--dns-rrpproxy-staging``                Whether this is a test run (OTE).
 ========================================  =====================================
 

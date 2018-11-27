@@ -25,7 +25,7 @@ class Authenticator(dns_common.DNSAuthenticator):
     RRP_SERVER = 'api.rrpproxy.net'
     RRP_SERVER_STAGING = 'api-ote.rrpproxy.net'
     RRP_REQUEST_URI = '/api/call'
-    RRP_PROPAGATION_SECONDS = 60
+    RRP_PROPAGATION_SECONDS = 120
 
     def __init__(self, *args, **kwargs):
         super(Authenticator, self).__init__(*args, **kwargs)
@@ -36,9 +36,9 @@ class Authenticator(dns_common.DNSAuthenticator):
 
     @classmethod
     def add_parser_arguments(cls, add):  # pylint: disable=arguments-differ
-        super(Authenticator, cls).add_parser_arguments(add, default_propagation_seconds=60)
+        super(Authenticator, cls).add_parser_arguments(add, default_propagation_seconds=120)
         add('credentials', help='RRPproxy credentials INI file.')
-        add('propagation_seconds', type=int, default=60, help='Number of secs. to wait for DNS propagation.')
+        add('propagation_seconds', type=int, default=120, help='Number of secs. to wait for DNS propagation.')
         add('staging', action='store_true', help='Whether this is a test run (OTE).')
 
     def more_info(self):  # pylint: disable=missing-docstring,no-self-use
