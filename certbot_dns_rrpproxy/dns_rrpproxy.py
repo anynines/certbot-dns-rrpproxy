@@ -1,5 +1,5 @@
 """DNS Authenticator using RRPProxy API."""
-import http.client
+import httplib
 import logging
 import urllib
 import zope.interface
@@ -26,16 +26,21 @@ class Authenticator(dns_common.DNSAuthenticator):
     RRP_SERVER = 'api.rrpproxy.net'
     RRP_SERVER_STAGING = 'api-ote.rrpproxy.net'
     RRP_REQUEST_URI = '/api/call'
-    ttl = 30
+    RRP_PROPAGATION_SECONDS = 60
 
     def __init__(self, *args, **kwargs):
         super(Authenticator, self).__init__(*args, **kwargs)
+        self.server = self.RRP_SERVER
+        self.request_uri = self.RRP_REQUEST_URI
         self.credentials = None
+        self.propagation_seconds = self.RRP_PROPAGATION_SECONDS
 
     @classmethod
     def add_parser_arguments(cls, add):  # pylint: disable=arguments-differ
         super(Authenticator, cls).add_parser_arguments(add, default_propagation_seconds=60)
         add('credentials', help='RRPproxy credentials INI file.')
+        add('propagation_seconds', type=int, default=60, help='Number of secs. to wait for DNS propagation.')
+        add('staging', action='store_true', help='Whether this is a test run (OTE).')
 
     def more_info(self):  # pylint: disable=missing-docstring,no-self-use
         return 'This plugin configures a DNS TXT record to respond to a dns-01 challenge using ' + \
@@ -52,32 +57,33 @@ class Authenticator(dns_common.DNSAuthenticator):
         )
 
     def _perform(self, _domain, validation_name, validation):
-        self._get_rrpproxy_client().add_txt_record(validation_name, validation, self.ttl)
+        self._get_rrpproxy_client().add_txt_record(_domain, validation_name, validation, self.conf('propagation_seconds'))
 
     def _cleanup(self, _domain, validation_name, validation):
-        self._get_rrpproxy_client().del_txt_record(validation_name, validation)
+        self._get_rrpproxy_client().del_txt_record(_domain, validation_name, validation)
 
     def _get_rrpproxy_client(self):
-        return _RRPProxyClient(self.credentials.conf('server') or self.RRP_SERVER,
-                              self.credentials.conf('request_uri') or self.RRP_REQUEST_URI,
-                              self.credentials.conf('s_login'),
-                              self.credentials.conf('s_pw'))
+        if self.conf('staging'):
+            self.server = self.RRP_SERVER_STAGING
 
+        return _RRPProxyClient(self.server,
+                               self.request_uri,
+                               self.credentials.conf('s_login'),
+                               self.credentials.conf('s_pw'),
+                               self.conf('staging'))
 
 class _RRPProxyClient(object):
     """
     Encapsulates all communication with the target DNS server.
     """
-    def __init__(self, server, uri, login, password):
+    def __init__(self, server, uri, login, password, staging):
         self.server = server
         self.uri = uri
         self.login = login
         self.password = password
-    
-    # def _server_url(self):
-    #     return "https://%s:%s@%s:%s%s" % (self.login, self.password, self.server, self.port, self.uri)
+        self.staging = staging
 
-    def add_txt_record(self, record_name, record_content, record_ttl):
+    def add_txt_record(self, domain, record_name, record_content, record_ttl):
         """
         Add a TXT record using the supplied information.
 
@@ -87,26 +93,35 @@ class _RRPProxyClient(object):
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
 
-        conn = http.client.HTTPSConnection(self.server)
+        conn = httplib.HTTPSConnection(self.server)
         conn.set_debuglevel(1)
         try:
-            params = urllib.parse.urlencode({
+            logger.info('authenticating domain: %s' % domain)
+            logger.info('authenticating record_name: %s' % record_name)
+            logger.info('authenticating record_content: %s' % record_content)
+            logger.info('authenticating record_ttl: %s' % record_ttl)
+            params_hash = {
                 's_login': self.login,
                 's_pw': self.password,
-                'command': 'checkdomain',
-                'domain': record_name,
-                's_opmode': 'OTE'
-            })
-            conn.request("GET", '/api/call', params)
+                'command': 'QueryDnsZoneRRList',
+                'dnszone': domain
+            }
+
+            if self.staging:
+                params_hash['s_opmode'] = 'OTE'
+
+            params = urllib.urlencode(params_hash)
+
+            conn.request('GET', self.uri + '?' + params)
             response = conn.getresponse()
             logger.info('response.status: %s' % response.status)
             logger.info('response.reason: %s' % response.reason)
             data = response.read()
             logger.info('response.data: %s' % data)
-        except Error as v:
+        except httplib.HTTPException as v:
             logger.error(v)
 
-    def del_txt_record(self, record_name, record_content):
+    def del_txt_record(self, domain, record_name, record_content):
         """
         Delete a TXT record using the supplied information.
 

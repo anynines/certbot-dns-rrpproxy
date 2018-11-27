@@ -105,3 +105,6 @@ venv.bak/
 
 # RRPProxy
 rrpproxy.ini
+
+# Visual Studio code
+.vscode*

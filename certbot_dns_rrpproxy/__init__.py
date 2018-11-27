@@ -8,13 +8,13 @@ Named Arguments
 ---------------
 
 ========================================  =====================================
-``--dns-google-credentials``              Google Cloud Platform credentials_
-                                          JSON file.
-                                          (Required - Optional on Google Compute Engine)
-``--dns-google-propagation-seconds``      The number of seconds to wait for DNS
+``--dns-rrpproxy-credentials``            RRPproxy account credentials in INI
+                                          format. (Required)
+``--dns-rrpproxy-propagation-seconds``    The number of seconds to wait for DNS
                                           to propagate before asking the ACME
                                           server to verify the DNS record.
                                           (Default: 60)
+``--dns-rrpproxy-staging``                Whether this is a test run (OTE).
 ========================================  =====================================
 
 
@@ -28,10 +28,8 @@ credentials with the required permissions to update DNS zones.
    :name: credentials.ini
    :caption: Example credentials file:
 
-   # login
-   s_login = user
-   # password
-   s_pw = password
+   certbot_dns_rrpproxy:dns_rrpproxy_s_login = user
+   certbot_dns_rrpproxy:dns_rrpproxy_s_pw = password
 
 The path to this file can be provided interactively or using the
 ``--dns-rrpproxy-credentials`` command-line argument. Certbot records the
@@ -58,8 +56,8 @@ Examples
    :caption: To acquire a certificate for ``example.com``
 
    certbot certonly \\
-     --dns-rrpproxy \\
-     --dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
+     --authenticator certbot-dns-rrpproxy:dns-rrpproxy \\
+     --certbot-dns-rrpproxy:dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
      -d example.com
 
 .. code-block:: bash
@@ -67,18 +65,30 @@ Examples
              ``www.example.com``
 
    certbot certonly \\
-     --dns-rrpproxy \\
-     --dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
+     --authenticator certbot-dns-rrpproxy:dns-rrpproxy \\
+     --certbot-dns-rrpproxy:dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
      -d example.com \\
      -d www.example.com
 
 .. code-block:: bash
-   :caption: To acquire a certificate for ``example.com``, waiting 30 seconds
+   :caption: To acquire a certificate for ``example.com``, waiting 120 seconds
              for DNS propagation
 
    certbot certonly \\
-     --dns-rrpproxy \\
-     --dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
-     --dns-rrpproxy-propagation-seconds 60 \\
+     --authenticator certbot-dns-rrpproxy:dns-rrpproxy \\
+     --certbot-dns-rrpproxy:dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
+     --certbot-dns-rrpproxy:dns-rrpproxy-propagation-seconds 120 \\
      -d example.com
+
+.. code-block:: bash
+   :caption: To acquire a certificate for ``*.example.com`` and ``example.com``
+             in a staging request
+
+   certbot certonly \\
+     --authenticator certbot-dns-rrpproxy:dns-rrpproxy \\
+     --certbot-dns-rrpproxy:dns-rrpproxy-credentials ~/.secrets/certbot/rrpproxy.ini \\
+     --certbot-dns-rrpproxy:dns-rrpproxy-staging \\
+     -d *.example.com \\
+     -d example.com
+
 """

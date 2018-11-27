@@ -22,7 +22,7 @@ setup(
     name='certbot-dns-rrpproxy',
     version=version,
     description='RRPproxy DNS Authenticator plugin for Certbot',
-    url='https://github.com/certbot/certbot',
+    url='https://github.com/avarteqgmbh/certbot-dns-rrpproxy',
     author='anynines GmbH',
     author_email='kblah@anynines.com',
     license='Apache License 2.0',
