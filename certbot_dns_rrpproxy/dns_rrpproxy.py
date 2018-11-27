@@ -2,13 +2,12 @@
 import httplib
 import logging
 import urllib
+import re
 import zope.interface
 
 from certbot import errors
 from certbot import interfaces
 from certbot.plugins import dns_common
-
-# from xmlrpc.client import ServerProxy, Error
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +82,40 @@ class _RRPProxyClient(object):
         self.password = password
         self.staging = staging
 
+    def _txt_record_name(self, record_name):
+        return record_name.split('.')[0]
+
+    def _merge_two_dicts(self, x, y):
+        z = x.copy()   # start with x's keys and values
+        z.update(y)    # modifies z with y's keys and values & returns None
+        return z
+
+    def _rrp_api_request(self, command, dnszone, additional_params = {}):
+        params_hash = {
+            's_login': self.login,
+            's_pw': self.password,
+            'command': command,
+            'dnszone': dnszone
+        }
+
+        if self.staging:
+            params_hash['s_opmode'] = 'OTE'
+
+        params_hash = self._merge_two_dicts(params_hash, additional_params)
+        params = urllib.urlencode(params_hash)
+        conn = httplib.HTTPSConnection(self.server)
+
+        if self.staging:
+            conn.set_debuglevel(1)
+
+        try:
+            conn.request('GET', self.uri + '?' + params)
+            return conn.getresponse()
+        except httplib.HTTPException as v:
+            logger.error(v)
+
+        return None
+
     def add_txt_record(self, domain, record_name, record_content, record_ttl):
         """
         Add a TXT record using the supplied information.
@@ -93,33 +126,20 @@ class _RRPProxyClient(object):
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
 
-        conn = httplib.HTTPSConnection(self.server)
-        conn.set_debuglevel(1)
-        try:
-            logger.info('authenticating domain: %s' % domain)
-            logger.info('authenticating record_name: %s' % record_name)
-            logger.info('authenticating record_content: %s' % record_content)
-            logger.info('authenticating record_ttl: %s' % record_ttl)
-            params_hash = {
-                's_login': self.login,
-                's_pw': self.password,
-                'command': 'QueryDnsZoneRRList',
-                'dnszone': domain
-            }
+        logger.debug('authenticating domain: %s' % domain)
+        logger.debug('authenticating record_name: %s' % record_name)
+        logger.debug('authenticating record_content: %s' % record_content)
+        logger.debug('authenticating record_ttl: %s' % record_ttl)
 
-            if self.staging:
-                params_hash['s_opmode'] = 'OTE'
+        self.del_txt_record(domain, record_name, record_content)
 
-            params = urllib.urlencode(params_hash)
-
-            conn.request('GET', self.uri + '?' + params)
-            response = conn.getresponse()
-            logger.info('response.status: %s' % response.status)
-            logger.info('response.reason: %s' % response.reason)
-            data = response.read()
-            logger.info('response.data: %s' % data)
-        except httplib.HTTPException as v:
-            logger.error(v)
+        short_record_name = self._txt_record_name(record_name)
+        add_params = {'addrr0': '%s %s IN TXT %s' % (short_record_name, record_ttl, record_content)}
+        response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
+        if response and response.status != 200:
+            logger.error('Adding %s to DNSzone %s failed!' % (record_name, domain))
+        logger.debug('response.status (ModifyDNSZone): %s' % response.status)
+        logger.debug('response.reason (ModifyDNSZone): %s' % response.reason)
 
     def del_txt_record(self, domain, record_name, record_content):
         """
@@ -130,3 +150,26 @@ class _RRPProxyClient(object):
         :param int record_ttl: The record TTL (number of seconds that the record may be cached).
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
+
+        logger.debug('authenticating domain: %s' % domain)
+        logger.debug('authenticating record_name: %s' % record_name)
+        logger.debug('authenticating record_content: %s' % record_content)
+
+        response = self._rrp_api_request('QueryDnsZoneRRList', domain)
+        logger.debug('response.status: %s' % response.status)
+        logger.debug('response.reason: %s' % response.reason)
+        if response and response.status == 200:
+            data = response.read().decode('utf-8')
+            for line in data.split('\n'):
+                if 'property[rr]' in line:
+                    logger.debug('property[rr] line: %s' % line)
+                    short_record_name = self._txt_record_name(record_name)
+                    if short_record_name in line:
+                        add_params = {'delrr0': re.sub(r'property\[rr\]\[\d+\] = ', '', line)}
+                        response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
+                        if response and response.status != 200:
+                            logger.error('Deleting %s in DNSzone %s failed!' % (short_record_name, domain))
+                        logger.debug('response.status (ModifyDNSZone): %s' % response.status)
+                        logger.debug('response.reason (ModifyDNSZone): %s' % response.reason)
+        else:
+            logger.error('HTTP request failed: %s (reason: %s)' % (response.status, response.reason))
