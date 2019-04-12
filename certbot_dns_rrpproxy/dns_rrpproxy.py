@@ -126,20 +126,31 @@ class _RRPProxyClient(object):
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
 
-        logger.debug('authenticating domain: %s' % domain)
-        logger.debug('authenticating record_name: %s' % record_name)
-        logger.debug('authenticating record_content: %s' % record_content)
-        logger.debug('authenticating record_ttl: %s' % record_ttl)
+        logger.debug('add_txt_record - authenticating domain: %s' % domain)
+        logger.debug('add_txt_record - authenticating record_name: %s' % record_name)
+        logger.debug('add_txt_record - authenticating record_content: %s' % record_content)
+        logger.debug('add_txt_record - authenticating record_ttl: %s' % record_ttl)
 
-        self.del_txt_record(domain, record_name, record_content)
-
-        short_record_name = self._txt_record_name(record_name)
-        add_params = {'addrr0': '%s %s IN TXT %s' % (short_record_name, record_ttl, record_content)}
-        response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
-        if response and response.status != 200:
-            logger.error('Adding %s to DNSzone %s failed!' % (record_name, domain))
-        logger.debug('response.status (ModifyDNSZone): %s' % response.status)
-        logger.debug('response.reason (ModifyDNSZone): %s' % response.reason)
+        response = self._rrp_api_request('QueryDnsZoneRRList', domain)
+        logger.debug('add_txt_record - response.status (QueryDnsZoneRRList): %s' % response.status)
+        logger.debug('add_txt_record - response.reason (QueryDnsZoneRRList): %s' % response.reason)
+        rrCount = 0
+        if response and response.status == 200:
+            data = response.read().decode('utf-8')
+            logger.debug('add_txt_record - response.data (QueryDnsZoneRRList): %s' % data)
+            for line in data.split('\n'):
+                record_count_regex = r'^property\[count\]\[(\d+)\] = (\d+)$'
+                match = re.search(record_count_regex, line)
+                if match:
+                    rrCount = match.group(2)
+                    logger.debug('add_txt_record - found property[count] (QueryDnsZoneRRList): %s' % rrCount)
+                    short_record_name = self._txt_record_name(record_name)
+                    add_params = {'addrr%s' % rrCount : '%s %s IN TXT %s' % (short_record_name, record_ttl, record_content)}
+                    response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
+                    if response and response.status != 200:
+                        logger.error('Adding %s to DNSzone %s failed!' % (record_name, domain))
+                    logger.debug('add_txt_record - response.status (ModifyDNSZone): %s' % response.status)
+                    logger.debug('add_txt_record - response.reason (ModifyDNSZone): %s' % response.reason)
 
     def del_txt_record(self, domain, record_name, record_content):
         """
@@ -151,25 +162,24 @@ class _RRPProxyClient(object):
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
 
-        logger.debug('authenticating domain: %s' % domain)
-        logger.debug('authenticating record_name: %s' % record_name)
-        logger.debug('authenticating record_content: %s' % record_content)
+        logger.debug('del_txt_record authenticating domain: %s' % domain)
+        logger.debug('del_txt_record authenticating record_name: %s' % record_name)
+        logger.debug('del_txt_record authenticating record_content: %s' % record_content)
 
         response = self._rrp_api_request('QueryDnsZoneRRList', domain)
-        logger.debug('response.status: %s' % response.status)
-        logger.debug('response.reason: %s' % response.reason)
+        logger.debug('del_txt_record response.status: %s' % response.status)
+        logger.debug('del_txt_record response.reason: %s' % response.reason)
         if response and response.status == 200:
             data = response.read().decode('utf-8')
             for line in data.split('\n'):
-                if 'property[rr]' in line:
-                    logger.debug('property[rr] line: %s' % line)
-                    short_record_name = self._txt_record_name(record_name)
-                    if short_record_name in line:
-                        add_params = {'delrr0': re.sub(r'property\[rr\]\[\d+\] = ', '', line)}
-                        response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
-                        if response and response.status != 200:
-                            logger.error('Deleting %s in DNSzone %s failed!' % (short_record_name, domain))
-                        logger.debug('response.status (ModifyDNSZone): %s' % response.status)
-                        logger.debug('response.reason (ModifyDNSZone): %s' % response.reason)
+                record_name_regex = r'^property\[rr\]\[(\d+)\] = (.*) %s$' % record_content
+                match = re.search(record_name_regex, line)
+                if match:
+                    add_params = {'delrr%s' % match.group(1): '%s %s' % (match.group(2), record_content)}
+                    response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
+                    if response and response.status != 200:
+                        logger.error('Deleting token %s in DNSzone %s failed!' % (record_content, domain))
+                    logger.debug('response.status (ModifyDNSZone): %s' % response.status)
+                    logger.debug('response.reason (ModifyDNSZone): %s' % response.reason)
         else:
             logger.error('HTTP request failed: %s (reason: %s)' % (response.status, response.reason))
