@@ -9,6 +9,8 @@ from certbot import errors
 from certbot import interfaces
 from certbot.plugins import dns_common
 
+from tld import get_fld
+
 logger = logging.getLogger(__name__)
 
 @zope.interface.implementer(interfaces.IAuthenticator)
@@ -126,12 +128,14 @@ class _RRPProxyClient(object):
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
 
+        fld = get_fld(domain, fix_protocol=True)
         logger.debug('add_txt_record - authenticating domain: %s' % domain)
+        logger.debug('add_txt_record - authenticating domain (fld): %s' % fld)
         logger.debug('add_txt_record - authenticating record_name: %s' % record_name)
         logger.debug('add_txt_record - authenticating record_content: %s' % record_content)
         logger.debug('add_txt_record - authenticating record_ttl: %s' % record_ttl)
 
-        response = self._rrp_api_request('QueryDnsZoneRRList', domain)
+        response = self._rrp_api_request('QueryDnsZoneRRList', fld)
         logger.debug('add_txt_record - response.status (QueryDnsZoneRRList): %s' % response.status)
         logger.debug('add_txt_record - response.reason (QueryDnsZoneRRList): %s' % response.reason)
         rrCount = 0
