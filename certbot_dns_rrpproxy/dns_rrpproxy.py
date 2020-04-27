@@ -1,7 +1,7 @@
 """DNS Authenticator using RRPProxy API."""
-import httplib
+import http.client
 import logging
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import re
 import zope.interface
 
@@ -104,8 +104,8 @@ class _RRPProxyClient(object):
             params_hash['s_opmode'] = 'OTE'
 
         params_hash = self._merge_two_dicts(params_hash, additional_params)
-        params = urllib.urlencode(params_hash)
-        conn = httplib.HTTPSConnection(self.server)
+        params = urllib.parse.urlencode(params_hash)
+        conn = http.client.HTTPSConnection(self.server)
 
         if self.staging:
             conn.set_debuglevel(1)
@@ -113,7 +113,7 @@ class _RRPProxyClient(object):
         try:
             conn.request('GET', self.uri + '?' + params)
             return conn.getresponse()
-        except httplib.HTTPException as v:
+        except http.client.HTTPException as v:
             logger.error(v)
 
         return None
