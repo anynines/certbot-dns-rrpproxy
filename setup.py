@@ -24,7 +24,7 @@ setup(
     description='RRPproxy DNS Authenticator plugin for Certbot',
     url='https://github.com/anynines/certbot-dns-rrpproxy',
     author='anynines GmbH',
-    author_email='kblah@anynines.com',
+    author_email='admin@anynines.com',
     license='Apache License 2.0',
     python_requires='>=3',
     classifiers=[

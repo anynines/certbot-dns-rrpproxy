@@ -1,19 +1,25 @@
+# default parameters
 rsa-key-size = 3072
-email = admin@example.com
 config-dir = ./.workspace/data
 work-dir = ./.workspace/data
 logs-dir = ./.workspace/data/logs
 expand = true
 agree-tos = true
-test-cert = true # use Let's Encrypt staging servers
-dry-run = true # Do the renewal, but don't save any files
 non-interactive = true
 keep-until-expiring = false
 renew-with-new-domains = true
-force-renewal = true
+
+# dns-challenge parameters
 preferred-challenges = dns-01
 authenticator = dns-rrpproxy
 dns-rrpproxy-credentials = ./.workspace/rrpproxy.production.ini
-dns-rrpproxy-staging = false # Use RRPProxy's OTE environment (Warning: without actual DNS records, certbot will fail)
 dns-rrpproxy-propagation-seconds = 180
+
+# to switch to production use, set the following parameters to false
+test-cert = true # use Let's Encrypt staging servers
+dry-run = true # Do the renewal, but don't save any files
+force-renewal = true # Do the renewal even if the certificates are still valid
+
+# personalisation
+email = admin@example.com # Email used for registration and recovery contact.
 domains = example.com, www.example.com
