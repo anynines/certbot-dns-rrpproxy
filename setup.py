@@ -1,13 +1,12 @@
 from setuptools import setup
 from setuptools import find_packages
 
-version = '0.2.0'
+version = '0.3.0'
 
 # Remember to update local-oldest-requirements.txt when changing the minimum
 # acme/certbot version.
 install_requires = [
-    'acme>=0.40.0',
-    'certbot>=0.21.1',
+    'certbot>=2.0',
     'mock',
     'setuptools',
     'tld',
@@ -23,7 +22,7 @@ setup(
     name='certbot-dns-rrpproxy',
     version=version,
     description='RRPproxy DNS Authenticator plugin for Certbot',
-    url='https://github.com/avarteqgmbh/certbot-dns-rrpproxy',
+    url='https://github.com/anynines/certbot-dns-rrpproxy',
     author='anynines GmbH',
     author_email='kblah@anynines.com',
     license='Apache License 2.0',
