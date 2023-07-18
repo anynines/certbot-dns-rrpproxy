@@ -9,7 +9,7 @@ from certbot import errors
 from certbot import interfaces
 from certbot.plugins import dns_common
 
-from tld import get_fld
+from tld import get_tld
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +84,6 @@ class _RRPProxyClient(object):
         self.password = password
         self.staging = staging
 
-    def _txt_record_name(self, record_name):
-        return record_name.split('.')[0]
-
     def _merge_two_dicts(self, x, y):
         z = x.copy()   # start with x's keys and values
         z.update(y)    # modifies z with y's keys and values & returns None
@@ -128,14 +125,22 @@ class _RRPProxyClient(object):
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
 
-        fld = get_fld(domain, fix_protocol=True)
+        logger.debug('add_txt_record - Function Parameters:')
+        logger.debug('  - domain: %s' % domain)
+        logger.debug('  - record_name: %s' % record_name)
+        logger.debug('  - record_content: %s' % record_content)
+        logger.debug('  - record_ttl: %s' % record_ttl)
+
+        record_name_object = get_tld(record_name, fix_protocol=True, as_object=True)
+        domain = record_name_object.fld
+        record_name = record_name_object.subdomain
+
         logger.debug('add_txt_record - authenticating domain: %s' % domain)
-        logger.debug('add_txt_record - authenticating domain (fld): %s' % fld)
         logger.debug('add_txt_record - authenticating record_name: %s' % record_name)
         logger.debug('add_txt_record - authenticating record_content: %s' % record_content)
         logger.debug('add_txt_record - authenticating record_ttl: %s' % record_ttl)
 
-        response = self._rrp_api_request('QueryDnsZoneRRList', fld)
+        response = self._rrp_api_request('QueryDnsZoneRRList', domain)
         logger.debug('add_txt_record - response.status (QueryDnsZoneRRList): %s' % response.status)
         logger.debug('add_txt_record - response.reason (QueryDnsZoneRRList): %s' % response.reason)
         rrCount = 0
@@ -148,8 +153,7 @@ class _RRPProxyClient(object):
                 if match:
                     rrCount = match.group(2)
                     logger.debug('add_txt_record - found property[count] (QueryDnsZoneRRList): %s' % rrCount)
-                    short_record_name = self._txt_record_name(record_name)
-                    add_params = {'addrr%s' % rrCount : '%s %s IN TXT %s' % (short_record_name, record_ttl, record_content)}
+                    add_params = {'addrr%s' % rrCount : '%s %s IN TXT %s' % (record_name, record_ttl, record_content)}
                     response = self._rrp_api_request('ModifyDNSZone', domain, add_params)
                     if response and response.status != 200:
                         logger.error('Adding %s to DNSzone %s failed!' % (record_name, domain))
@@ -165,6 +169,15 @@ class _RRPProxyClient(object):
         :param int record_ttl: The record TTL (number of seconds that the record may be cached).
         :raises certbot.errors.PluginError: if an error occurs communicating with the DNS server
         """
+
+        logger.debug('del_txt_record - Function Parameters:')
+        logger.debug('  - domain: %s' % domain)
+        logger.debug('  - record_name: %s' % record_name)
+        logger.debug('  - record_content: %s' % record_content)
+
+        record_name_object = get_tld(record_name, fix_protocol=True, as_object=True)
+        domain = record_name_object.fld
+        record_name = record_name_object.subdomain
 
         logger.debug('del_txt_record authenticating domain: %s' % domain)
         logger.debug('del_txt_record authenticating record_name: %s' % record_name)

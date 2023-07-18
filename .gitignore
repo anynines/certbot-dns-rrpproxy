@@ -103,6 +103,10 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Workspace
+.workspace/data/**
+.workspace/*.ini
+
 # RRPProxy
 rrpproxy*.ini
 
